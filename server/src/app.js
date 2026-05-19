@@ -7,6 +7,7 @@ const { testConnection } = require('./db');
 const authRoutes = require('./routes/auth');
 const salonRoutes = require('./routes/salons');
 const stylistRoutes = require('./routes/stylists');
+const bookingRoutes = require('./routes/bookings');
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/salons', salonRoutes);
 app.use('/api/stylists', stylistRoutes);
+app.use('/api/bookings', bookingRoutes);
 
 const PORT = process.env.PORT || 3000;
 
