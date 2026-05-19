@@ -13,4 +13,7 @@ export const colors = {
   primaryLight: '#EEF3FF',
   disabled: '#D1D5DB',
   overlay: 'rgba(0,0,0,0.18)',
+  surfaceMuted: '#E8E8ED',
+  promo: '#22C55E',
+  unavailable: '#E0E0E0',
 };
