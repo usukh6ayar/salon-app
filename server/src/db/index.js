@@ -6,4 +6,17 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-module.exports = pool;
+async function query(text, params) {
+  return pool.query(text, params);
+}
+
+async function testConnection() {
+  try {
+    await pool.query('SELECT 1');
+    console.log('Database connected');
+  } catch (err) {
+    console.error('Database connection error:', err.message);
+  }
+}
+
+module.exports = { pool, query, testConnection };
