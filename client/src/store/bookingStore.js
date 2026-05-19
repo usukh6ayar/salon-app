@@ -4,6 +4,7 @@ const initialState = {
   selectedSalon: null,
   selectedStylist: null,
   selectedService: null,
+  selectedServices: [],
   selectedDate: null,
   selectedTime: null,
 };
@@ -14,7 +15,17 @@ const useBookingStore = create((set) => ({
   setSalon: (selectedSalon) => set({ selectedSalon }),
   setStylist: (selectedStylist) =>
     set({ selectedStylist: selectedStylist ?? null }),
-  setService: (selectedService) => set({ selectedService }),
+  setService: (selectedService) => {
+    const selectedServices = Array.isArray(selectedService)
+      ? selectedService
+      : selectedService
+        ? [selectedService]
+        : [];
+    set({
+      selectedServices,
+      selectedService: selectedServices[0] ?? null,
+    });
+  },
   setDateTime: (selectedDate, selectedTime) => set({ selectedDate, selectedTime }),
   clearBooking: () => set(initialState),
 }));

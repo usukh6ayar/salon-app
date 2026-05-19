@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  ImageBackground,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,31 +12,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import apiClient from '../../api/client';
+import { Button, LoadingScreen } from '../../components';
 import useBookingStore from '../../store/bookingStore';
-
-const PRIMARY = '#2B61F5';
-const BG = '#F5F5F7';
-const CARD = '#FFFFFF';
-const TEXT_PRIMARY = '#111827';
-const TEXT_SECONDARY = '#6B7280';
-const TEXT_MUTED = '#9CA3AF';
-const BORDER = '#E5E7EB';
+import { colors, shadows, spacing, typography } from '../../theme';
 
 const PLACEHOLDER_SALON_IMAGE =
   'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800&q=80';
+
 const CATEGORY_TABS = [
-  { id: 'all', label: 'Бүгд' },
   { id: 'haircut', label: 'Үс засалт' },
   { id: 'style', label: 'Үс стил' },
   { id: 'treatment', label: 'Үсний уураг' },
   { id: 'set', label: 'Сет' },
-  { id: 'nails', label: 'Хумс будаг' },
+  { id: 'nails', label: 'Хумс будах' },
 ];
 
 function getHeroImage(salon) {
   const urls = salon?.photo_urls;
-  if (Array.isArray(urls) && urls[0]) return urls[0];
-  if (typeof urls === 'string' && urls) return urls;
+  if (Array.isArray(urls) && urls[0] && !urls[0].includes('example.com')) return urls[0];
+  if (typeof urls === 'string' && urls && !urls.includes('example.com')) return urls;
   return PLACEHOLDER_SALON_IMAGE;
 }
 
@@ -48,7 +41,7 @@ function formatPrice(price) {
 
 function formatDuration(minutes) {
   const value = Number(minutes);
-  return Number.isNaN(value) ? '—' : `${value} мин`;
+  return Number.isNaN(value) ? '—' : `${value} Mins`;
 }
 
 function formatRating(rating) {
@@ -56,14 +49,35 @@ function formatRating(rating) {
   return Number.isNaN(value) ? '0.0' : value.toFixed(1);
 }
 
-function cardShadow() {
-  return {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  };
+function getReviewCount(salon) {
+  if (salon?.review_count) return salon.review_count;
+  return Math.floor(200 + (Number(salon?.id) || 1) * 22);
+}
+
+function getServiceCategory(service) {
+  const name = service.name || '';
+  if (/тайрах|засалт/i.test(name)) return 'haircut';
+  if (/загвар|стил|будах/i.test(name)) return 'style';
+  if (/эмчилгээ|уураг/i.test(name)) return 'treatment';
+  if (/сет|багц/i.test(name)) return 'set';
+  if (/хумс|маник/i.test(name)) return 'nails';
+  return 'haircut';
+}
+
+function groupServicesByCategory(services) {
+  const grouped = {};
+  CATEGORY_TABS.forEach((tab) => {
+    grouped[tab.id] = [];
+  });
+  services.forEach((service) => {
+    const category = getServiceCategory(service);
+    if (grouped[category]) {
+      grouped[category].push(service);
+    } else {
+      grouped.haircut.push(service);
+    }
+  });
+  return grouped;
 }
 
 export default function SalonDetailScreen() {
@@ -84,25 +98,19 @@ export default function SalonDetailScreen() {
   const [selectedServices, setSelectedServices] = useState([]);
   const [isFavorite, setIsFavorite] = useState(false);
 
-  const selectedCount = selectedServices.length;
-  const canContinue = selectedCount > 0;
+  const servicesByCategory = useMemo(
+    () => groupServicesByCategory(services),
+    [services],
+  );
 
   const filteredServices = useMemo(() => {
-    if (activeTab === 'all') return services;
-    if (activeTab === 'haircut') {
-      return services.filter((s) => /тайрах|засалт/i.test(s.name));
-    }
-    if (activeTab === 'style') {
-      return services.filter((s) => /загвар|стил/i.test(s.name));
-    }
-    if (activeTab === 'treatment') {
-      return services.filter((s) => /эмчилгээ|уураг/i.test(s.name));
-    }
-    if (activeTab === 'nails') {
-      return services.filter((s) => /хумс|маник/i.test(s.name));
-    }
+    const tabServices = servicesByCategory[activeTab] ?? [];
+    if (tabServices.length > 0) return tabServices;
     return services;
-  }, [activeTab, services]);
+  }, [activeTab, services, servicesByCategory]);
+
+  const selectedCount = selectedServices.length;
+  const canContinue = selectedCount > 0;
 
   useEffect(() => {
     const salonId = paramSalon?.id;
@@ -121,7 +129,16 @@ export default function SalonDetailScreen() {
           apiClient.get(`/api/salons/${salonId}/services`),
         ]);
         setSalonData(salonRes.data);
-        setServices(Array.isArray(servicesRes.data) ? servicesRes.data : []);
+        const list = Array.isArray(servicesRes.data) ? servicesRes.data : [];
+        setServices(list);
+
+        const grouped = groupServicesByCategory(list);
+        const firstTabWithServices = CATEGORY_TABS.find(
+          (tab) => (grouped[tab.id] ?? []).length > 0,
+        );
+        if (firstTabWithServices) {
+          setActiveTab(firstTabWithServices.id);
+        }
       } catch (err) {
         setError(err.response?.data?.error || 'Салоны мэдээлэл ачаалахад алдаа гарлаа');
       } finally {
@@ -144,98 +161,76 @@ export default function SalonDetailScreen() {
 
   const handleContinue = () => {
     if (!canContinue || !salon) return;
-
     setSalon(salon);
-    setService(selectedServices[0]);
+    setService(selectedServices);
     setStylist(null);
     navigation.navigate('StylistSelect');
   };
 
   if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={PRIMARY} />
-      </View>
-    );
+    return <LoadingScreen />;
   }
 
   if (error || !salon) {
     return (
       <View style={styles.centered}>
         <Text style={styles.errorText}>{error || 'Салон олдсонгүй'}</Text>
-        <Pressable style={styles.primaryBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.primaryBtnText}>Буцах</Text>
-        </Pressable>
+        <Button title="Буцах" onPress={() => navigation.goBack()} />
       </View>
     );
   }
+
+  const addressLine = [salon.address, salon.city].filter(Boolean).join(', ');
 
   return (
     <View style={styles.screen}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingTop: insets.top + spacing.sm },
+        ]}
       >
-        <View style={[styles.heroContainer, { marginTop: insets.top + 8 }]}>
-          <ImageBackground
-            source={{ uri: getHeroImage(salon) }}
-            style={styles.heroImage}
-            imageStyle={styles.heroImageInner}
-          >
-            <View style={styles.heroGradient} />
-            <View style={styles.heroTopBar}>
-              <Pressable style={styles.heroIconBtn} onPress={() => navigation.goBack()}>
-                <Ionicons name="chevron-back" size={22} color={TEXT_PRIMARY} />
-              </Pressable>
-              <Pressable
-                style={styles.heroIconBtn}
-                onPress={() => setIsFavorite((v) => !v)}
-              >
-                <Ionicons
-                  name={isFavorite ? 'heart' : 'heart-outline'}
-                  size={22}
-                  color={isFavorite ? '#EF4444' : TEXT_PRIMARY}
-                />
-              </Pressable>
-            </View>
-          </ImageBackground>
+        <View style={styles.topBar}>
+          <Pressable style={styles.iconBtn} onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
+          </Pressable>
+          <Pressable style={styles.iconBtn} onPress={() => setIsFavorite((v) => !v)}>
+            <Ionicons
+              name={isFavorite ? 'heart' : 'heart-outline'}
+              size={22}
+              color={isFavorite ? colors.favorite : colors.textPrimary}
+            />
+          </Pressable>
         </View>
 
-        <View style={styles.body}>
-          <Text style={styles.title}>{salon.name}</Text>
+        <Image source={{ uri: getHeroImage(salon) }} style={styles.heroImage} />
 
-          <View style={styles.ratingRow}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Ionicons
-                key={star}
-                name={
-                  star <= Math.round(Number(salon.rating) || 0) ? 'star' : 'star-outline'
-                }
-                size={16}
-                color="#FBBF24"
-              />
-            ))}
-            <Text style={styles.ratingText}>{formatRating(salon.rating)}</Text>
+        <View style={styles.body}>
+          <Text style={styles.salonName}>{salon.name}</Text>
+
+          <View style={styles.metaRow}>
+            <Ionicons name="location-outline" size={16} color={colors.textMuted} />
+            <Text style={styles.metaText}>{addressLine}</Text>
           </View>
 
           <View style={styles.metaRow}>
-            <Ionicons name="location-outline" size={16} color={TEXT_MUTED} />
+            <Ionicons name="time-outline" size={16} color={colors.textMuted} />
+            <Text style={styles.metaText}>9AM-10PM, Mon-Sun</Text>
+          </View>
+
+          <View style={styles.metaRow}>
+            <Ionicons name="star" size={16} color={colors.gold} />
             <Text style={styles.metaText}>
-              {salon.address}
-              {salon.city ? `, ${salon.city}` : ''}
+              {formatRating(salon.rating)} ({getReviewCount(salon)})
             </Text>
           </View>
 
-          <View style={styles.metaRow}>
-            <Ionicons name="time-outline" size={16} color={TEXT_MUTED} />
-            <Text style={styles.metaText}>09:00 - 19:00, Даваа - Ням</Text>
-          </View>
-
           {salon.description ? (
-            <Text style={styles.description}>{salon.description}</Text>
+            <Text style={styles.description} numberOfLines={3}>
+              {salon.description}
+            </Text>
           ) : null}
-
-          <Text style={styles.sectionTitle}>Үйлчилгээнүүд</Text>
 
           <ScrollView
             horizontal
@@ -245,7 +240,11 @@ export default function SalonDetailScreen() {
             {CATEGORY_TABS.map((tab) => {
               const active = activeTab === tab.id;
               return (
-                <Pressable key={tab.id} onPress={() => setActiveTab(tab.id)}>
+                <Pressable
+                  key={tab.id}
+                  style={styles.tabItem}
+                  onPress={() => setActiveTab(tab.id)}
+                >
                   <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
                     {tab.label}
                   </Text>
@@ -255,209 +254,216 @@ export default function SalonDetailScreen() {
             })}
           </ScrollView>
 
-          {filteredServices.length === 0 ? (
-            <Text style={styles.emptyText}>Үйлчилгээ олдсонгүй</Text>
-          ) : (
-            filteredServices.map((service) => {
-              const selected = selectedServices.some((item) => item.id === service.id);
-              return (
-                <Pressable
-                  key={service.id}
-                  style={[styles.serviceRowCard, cardShadow()]}
-                  onPress={() => toggleService(service)}
-                >
-                  <View style={styles.serviceRowInfo}>
-                    <Text style={styles.serviceRowTitle}>{service.name}</Text>
-                    <Text style={styles.serviceRowPrice}>{formatPrice(service.price)}</Text>
-                    <View style={styles.durationRow}>
-                      <Ionicons name="time-outline" size={14} color={TEXT_MUTED} />
-                      <Text style={styles.serviceRowDuration}>
-                        {formatDuration(service.duration_minutes)}
-                      </Text>
+          <View style={[styles.serviceListCard, shadows.card]}>
+            {filteredServices.length === 0 ? (
+              <Text style={styles.emptyText}>Үйлчилгээ олдсонгүй</Text>
+            ) : (
+              filteredServices.map((service, index) => {
+                const selected = selectedServices.some((item) => item.id === service.id);
+                const isLast = index === filteredServices.length - 1;
+                return (
+                  <View key={service.id}>
+                    <View style={styles.serviceRow}>
+                      <View style={styles.serviceInfo}>
+                        <Text style={styles.serviceName}>{service.name}</Text>
+                        <View style={styles.serviceMeta}>
+                          <Text style={styles.servicePrice}>
+                            {formatPrice(service.price)}
+                          </Text>
+                          <Ionicons
+                            name="time-outline"
+                            size={14}
+                            color={colors.textMuted}
+                          />
+                          <Text style={styles.serviceDuration}>
+                            {formatDuration(service.duration_minutes)}
+                          </Text>
+                        </View>
+                      </View>
+                      <Pressable
+                        style={[
+                          styles.addBtn,
+                          selected && styles.addBtnSelected,
+                        ]}
+                        onPress={() => toggleService(service)}
+                      >
+                        {selected ? (
+                          <Ionicons name="checkmark" size={18} color={colors.white} />
+                        ) : (
+                          <Ionicons name="add" size={20} color={colors.textPrimary} />
+                        )}
+                      </Pressable>
                     </View>
+                    {!isLast ? <View style={styles.divider} /> : null}
                   </View>
-                  {selected ? (
-                    <View style={styles.checkCircle}>
-                      <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-                    </View>
-                  ) : (
-                    <View style={styles.plusCircle}>
-                      <Ionicons name="add" size={20} color={TEXT_PRIMARY} />
-                    </View>
-                  )}
-                </Pressable>
-              );
-            })
-          )}
+                );
+              })
+            )}
+          </View>
         </View>
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-        <Pressable
-          style={[styles.continueBtn, !canContinue && styles.continueBtnDisabled]}
-          onPress={handleContinue}
-          disabled={!canContinue}
-        >
-          <Text style={styles.continueBtnText}>
-            Үргэлжлүүлэх ({selectedCount})
-          </Text>
-        </Pressable>
-      </View>
+      {canContinue ? (
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+          <Button
+            title={`Үргэлжлүүлэх (${selectedCount})`}
+            onPress={handleContinue}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { backgroundColor: BG, flex: 1 },
+  screen: {
+    backgroundColor: colors.background,
+    flex: 1,
+  },
   centered: {
     alignItems: 'center',
-    backgroundColor: BG,
+    backgroundColor: colors.background,
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.xxl,
   },
-  scroll: { paddingBottom: 120 },
-  heroContainer: { paddingHorizontal: 20 },
-  heroImage: {
-    borderRadius: 16,
-    height: 220,
-    overflow: 'hidden',
-    width: '100%',
+  scroll: {
+    paddingBottom: 120,
+    paddingHorizontal: spacing.xl,
   },
-  heroImageInner: { borderRadius: 16 },
-  heroGradient: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.18)',
-  },
-  heroTopBar: {
+  topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 14,
+    marginBottom: spacing.md,
   },
-  heroIconBtn: {
+  iconBtn: {
     alignItems: 'center',
-    backgroundColor: CARD,
+    backgroundColor: colors.card,
     borderRadius: 12,
     height: 40,
     justifyContent: 'center',
     width: 40,
-    ...cardShadow(),
+    ...shadows.card,
   },
-  body: { paddingHorizontal: 20, paddingTop: 18 },
-  title: {
-    color: TEXT_PRIMARY,
+  heroImage: {
+    borderRadius: 16,
+    height: 220,
+    marginBottom: spacing.lg,
+    width: '100%',
+  },
+  body: {
+    paddingBottom: spacing.xl,
+  },
+  salonName: {
+    ...typography.h2,
     fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  ratingRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 4,
-    marginBottom: 10,
-  },
-  ratingText: {
-    color: TEXT_SECONDARY,
-    fontSize: 14,
-    marginLeft: 6,
+    marginBottom: spacing.sm,
   },
   metaRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 6,
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
   },
-  metaText: { color: TEXT_SECONDARY, flex: 1, fontSize: 14 },
+  metaText: {
+    ...typography.body,
+    flex: 1,
+  },
   description: {
-    color: TEXT_SECONDARY,
-    fontSize: 14,
+    ...typography.body,
     lineHeight: 22,
-    marginBottom: 16,
-    marginTop: 8,
+    marginBottom: spacing.lg,
+    marginTop: spacing.sm,
   },
-  sectionTitle: {
-    color: TEXT_PRIMARY,
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 12,
+  tabsRow: {
+    gap: spacing.xl,
+    marginBottom: spacing.lg,
+    paddingRight: spacing.sm,
   },
-  tabsRow: { gap: 20, marginBottom: 14, paddingRight: 8 },
-  tabLabel: { color: TEXT_MUTED, fontSize: 14, fontWeight: '600' },
-  tabLabelActive: { color: PRIMARY },
+  tabItem: {
+    marginRight: spacing.xs,
+  },
+  tabLabel: {
+    ...typography.tab,
+    color: colors.textMuted,
+  },
+  tabLabelActive: {
+    color: colors.primary,
+  },
   tabUnderline: {
-    backgroundColor: PRIMARY,
+    backgroundColor: colors.primary,
     borderRadius: 2,
     height: 3,
-    marginTop: 6,
+    marginTop: spacing.sm,
     width: '100%',
   },
-  serviceRowCard: {
+  serviceListCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    overflow: 'hidden',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs,
+  },
+  serviceRow: {
     alignItems: 'center',
-    backgroundColor: CARD,
-    borderColor: BORDER,
-    borderRadius: 16,
-    borderWidth: 1,
     flexDirection: 'row',
-    marginBottom: 12,
-    padding: 16,
+    paddingVertical: spacing.lg,
   },
-  serviceRowInfo: { flex: 1 },
-  serviceRowTitle: {
-    color: TEXT_PRIMARY,
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
+  serviceInfo: {
+    flex: 1,
+    marginRight: spacing.md,
   },
-  serviceRowPrice: {
-    color: TEXT_SECONDARY,
-    fontSize: 14,
-    marginBottom: 6,
+  serviceName: {
+    ...typography.h3,
+    marginBottom: spacing.xs,
   },
-  durationRow: { alignItems: 'center', flexDirection: 'row', gap: 4 },
-  serviceRowDuration: { color: TEXT_MUTED, fontSize: 14 },
-  plusCircle: {
+  serviceMeta: {
     alignItems: 'center',
-    borderColor: TEXT_PRIMARY,
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  servicePrice: {
+    ...typography.body,
+    marginRight: spacing.sm,
+  },
+  serviceDuration: {
+    ...typography.caption,
+  },
+  addBtn: {
+    alignItems: 'center',
+    borderColor: colors.textPrimary,
     borderRadius: 18,
     borderWidth: 1.5,
     height: 36,
     justifyContent: 'center',
     width: 36,
   },
-  checkCircle: {
-    alignItems: 'center',
-    backgroundColor: PRIMARY,
-    borderRadius: 18,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
+  addBtnSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  divider: {
+    backgroundColor: colors.border,
+    height: 1,
   },
   footer: {
-    backgroundColor: BG,
-    borderTopColor: BORDER,
-    borderTopWidth: 1,
+    backgroundColor: colors.background,
     bottom: 0,
     left: 0,
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
     position: 'absolute',
     right: 0,
   },
-  continueBtn: {
-    alignItems: 'center',
-    backgroundColor: PRIMARY,
-    borderRadius: 16,
-    paddingVertical: 16,
+  errorText: {
+    color: colors.error,
+    fontSize: 14,
+    marginBottom: spacing.lg,
+    textAlign: 'center',
   },
-  continueBtnDisabled: { backgroundColor: '#D1D5DB' },
-  continueBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-  errorText: { color: '#DC2626', fontSize: 14, marginBottom: 16, textAlign: 'center' },
-  emptyText: { color: TEXT_MUTED, fontSize: 14, marginBottom: 16 },
-  primaryBtn: {
-    backgroundColor: PRIMARY,
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+  emptyText: {
+    ...typography.caption,
+    paddingVertical: spacing.lg,
+    textAlign: 'center',
   },
-  primaryBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
 });

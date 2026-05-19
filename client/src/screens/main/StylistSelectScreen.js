@@ -1,43 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
   Image,
-  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import apiClient from '../../api/client';
+import { Button, Card, Header, LoadingScreen } from '../../components';
 import useBookingStore from '../../store/bookingStore';
-
-const PRIMARY = '#2B61F5';
-const GOLD = '#C9A96E';
-const BG = '#F5F5F7';
-const CARD = '#FFFFFF';
-const TEXT_PRIMARY = '#111827';
-const TEXT_MUTED = '#9CA3AF';
-const BORDER = '#E5E7EB';
+import { colors, spacing, typography } from '../../theme';
 
 const PLACEHOLDER_STYLIST_IMAGE =
   'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&q=80';
-
-function cardShadow() {
-  return {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  };
-}
 
 function getStylistImage(stylist) {
   if (stylist?.photo_url && !stylist.photo_url.includes('example.com')) {
@@ -58,47 +37,37 @@ function formatSpecialty(stylist) {
 
 function OptionCard({ icon, title, subtitle, selected, onPress }) {
   return (
-    <Pressable
-      style={[
-        styles.optionCard,
-        cardShadow(),
-        selected && styles.optionCardSelected,
-      ]}
-      onPress={onPress}
-    >
-      <View style={styles.optionIconWrap}>
-        <Ionicons name={icon} size={22} color={PRIMARY} />
+    <Card selected={selected} onPress={onPress} style={styles.optionCard}>
+      <View style={styles.optionRow}>
+        <View style={styles.optionIconWrap}>
+          <Ionicons name={icon} size={22} color={colors.primary} />
+        </View>
+        <View style={styles.optionTextWrap}>
+          <Text style={styles.optionTitle}>{title}</Text>
+          <Text style={styles.optionSubtitle}>{subtitle}</Text>
+        </View>
       </View>
-      <View style={styles.optionTextWrap}>
-        <Text style={styles.optionTitle}>{title}</Text>
-        <Text style={styles.optionSubtitle}>{subtitle}</Text>
-      </View>
-    </Pressable>
+    </Card>
   );
 }
 
 function StylistCard({ stylist, isSelected, isTopRated, onPress }) {
   return (
-    <Pressable
-      style={[
-        styles.stylistCard,
-        cardShadow(),
-        isSelected && styles.stylistCardSelected,
-      ]}
-      onPress={onPress}
-    >
-      <Image source={{ uri: getStylistImage(stylist) }} style={styles.stylistPhoto} />
-      <View style={styles.stylistInfo}>
-        <Text style={styles.stylistName}>{stylist.name}</Text>
-        <Text style={styles.stylistSpecialty}>{formatSpecialty(stylist)}</Text>
-      </View>
-      {isTopRated ? (
-        <View style={styles.topRatedBadge}>
-          <Ionicons name="star" size={12} color={TEXT_PRIMARY} />
-          <Text style={styles.topRatedText}>Top Rated</Text>
+    <Card selected={isSelected} onPress={onPress} style={styles.stylistCard}>
+      <View style={styles.stylistRow}>
+        <Image source={{ uri: getStylistImage(stylist) }} style={styles.stylistPhoto} />
+        <View style={styles.stylistInfo}>
+          <Text style={styles.stylistName}>{stylist.name}</Text>
+          <Text style={styles.stylistSpecialty}>{formatSpecialty(stylist)}</Text>
         </View>
-      ) : null}
-    </Pressable>
+        {isTopRated ? (
+          <View style={styles.topRatedBadge}>
+            <Ionicons name="star" size={12} color={colors.textPrimary} />
+            <Text style={styles.topRatedText}>Top Rated</Text>
+          </View>
+        ) : null}
+      </View>
+    </Card>
   );
 }
 
@@ -114,8 +83,8 @@ export default function StylistSelectScreen() {
   const [stylists, setStylists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectionMode, setSelectionMode] = useState(null);
   const [selectedStylist, setSelectedStylist] = useState(null);
-  const [anyoneMode, setAnyoneMode] = useState(false);
 
   const topRatedIds = useMemo(
     () => new Set(stylists.slice(0, 2).map((s) => s.id)),
@@ -146,246 +115,193 @@ export default function StylistSelectScreen() {
     load();
   }, [salonId]);
 
-  const hasSelection = Boolean(selectedStylist || anyoneMode);
+  const hasSelection = selectionMode === 'anyone' || Boolean(selectedStylist);
+
+  const handleAnyone = () => {
+    setSelectionMode('anyone');
+    setSelectedStylist(null);
+  };
+
+  const handleMulti = () => {
+    setSelectionMode('multi');
+    setSelectedStylist(null);
+  };
 
   const handleSelectStylist = (stylist) => {
-    setAnyoneMode(false);
+    setSelectionMode('stylist');
     setSelectedStylist(stylist);
   };
 
-  const handleAnyone = () => {
-    setAnyoneMode(true);
-    setSelectedStylist(stylists[0] ?? null);
-  };
-
   const handleContinue = () => {
-    if (!hasSelection || !selectedStylist) return;
-    setStylist(selectedStylist);
+    if (!hasSelection) return;
+
+    if (selectionMode === 'anyone') {
+      setStylist(stylists[0] ?? { id: null, name: 'Хэн ч байж болно' });
+    } else if (selectedStylist) {
+      setStylist(selectedStylist);
+    } else {
+      return;
+    }
+
     navigation.navigate('DateTime');
   };
 
-  const listHeader = (
-    <View>
-      <OptionCard
-        icon="people-outline"
-        title="Хэн ч байж болно"
-        subtitle="Дараагийн боломжтой стилист"
-        selected={anyoneMode}
-        onPress={handleAnyone}
-      />
-      <OptionCard
-        icon="person-add-outline"
-        title="Олныг сонгох"
-        subtitle="Үйлчилгээ тус бүрийг сонгоно уу"
-        selected={false}
-        onPress={() => {}}
-      />
-    </View>
-  );
-
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <View style={styles.header}>
-        <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={24} color={TEXT_PRIMARY} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Стилистээ сонго</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+    <View style={styles.screen}>
+      <Header title="Стилистээ сонго" />
 
       {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={PRIMARY} />
-        </View>
+        <LoadingScreen />
       ) : error ? (
         <View style={styles.centered}>
           <Text style={styles.errorText}>{error}</Text>
-          <Pressable style={styles.retryBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.retryBtnText}>Буцах</Text>
-          </Pressable>
+          <Button title="Буцах" onPress={() => navigation.goBack()} />
         </View>
       ) : (
-        <FlatList
-          data={stylists}
-          keyExtractor={(item) => String(item.id)}
-          ListHeaderComponent={listHeader}
-          renderItem={({ item }) => (
-            <StylistCard
-              stylist={item}
-              isSelected={!anyoneMode && selectedStylist?.id === item.id}
-              isTopRated={topRatedIds.has(item.id)}
-              onPress={() => handleSelectStylist(item)}
-            />
-          )}
-          contentContainerStyle={styles.listContent}
+        <ScrollView
           showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
+          contentContainerStyle={styles.listContent}
+        >
+          <OptionCard
+            icon="people-outline"
+            title="Хэн ч байж болно"
+            subtitle="Дараагийн боломжтой стилист"
+            selected={selectionMode === 'anyone'}
+            onPress={handleAnyone}
+          />
+          <OptionCard
+            icon="person-add-outline"
+            title="Олныг сонгох"
+            subtitle="Үйлчилгээ тус бүрийг сонгоно уу"
+            selected={selectionMode === 'multi'}
+            onPress={handleMulti}
+          />
+
+          {stylists.length === 0 ? (
             <Text style={styles.emptyText}>Мастер олдсонгүй</Text>
-          }
-        />
+          ) : (
+            stylists.map((stylist) => (
+              <StylistCard
+                key={stylist.id}
+                stylist={stylist}
+                isSelected={
+                  selectionMode === 'stylist' && selectedStylist?.id === stylist.id
+                }
+                isTopRated={topRatedIds.has(stylist.id)}
+                onPress={() => handleSelectStylist(stylist)}
+              />
+            ))
+          )}
+        </ScrollView>
       )}
 
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-        <Pressable
-          style={[styles.continueBtn, !hasSelection && styles.continueBtnDisabled]}
-          onPress={handleContinue}
-          disabled={!hasSelection}
-        >
-          <Text style={styles.continueBtnText}>Сонгох & Үргэлжлүүлэх</Text>
-        </Pressable>
-      </View>
-    </SafeAreaView>
+      {!loading && !error ? (
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+          <Button
+            title="Сонгох & Үргэлжлүүлэх"
+            onPress={handleContinue}
+            disabled={!hasSelection}
+          />
+        </View>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { backgroundColor: BG, flex: 1 },
-  header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  backBtn: {
-    alignItems: 'center',
-    height: 40,
-    justifyContent: 'center',
-    width: 40,
-  },
-  headerTitle: {
-    color: TEXT_PRIMARY,
+  screen: {
+    backgroundColor: colors.background,
     flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
   },
-  headerSpacer: { width: 40 },
   centered: {
     alignItems: 'center',
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.xxl,
   },
   listContent: {
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingBottom: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.sm,
   },
   optionCard: {
-    alignItems: 'center',
-    backgroundColor: CARD,
-    borderColor: BORDER,
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: 'row',
-    marginBottom: 12,
-    padding: 14,
+    marginBottom: spacing.md,
   },
-  optionCardSelected: {
-    borderColor: PRIMARY,
-    borderWidth: 2,
+  optionRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
   },
   optionIconWrap: {
     alignItems: 'center',
-    backgroundColor: '#EEF3FF',
+    backgroundColor: colors.primaryLight,
     borderRadius: 12,
     height: 48,
     justifyContent: 'center',
     width: 48,
   },
-  optionTextWrap: { flex: 1, marginLeft: 14 },
+  optionTextWrap: {
+    flex: 1,
+    marginLeft: spacing.lg,
+  },
   optionTitle: {
-    color: TEXT_PRIMARY,
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
+    ...typography.h3,
+    marginBottom: spacing.xs,
   },
-  optionSubtitle: { color: TEXT_MUTED, fontSize: 14 },
+  optionSubtitle: {
+    ...typography.caption,
+  },
   stylistCard: {
-    alignItems: 'center',
-    backgroundColor: CARD,
-    borderColor: BORDER,
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: 'row',
-    marginBottom: 12,
-    padding: 14,
+    marginBottom: spacing.md,
   },
-  stylistCardSelected: {
-    borderColor: GOLD,
-    borderWidth: 2,
+  stylistRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
   },
   stylistPhoto: {
-    backgroundColor: BG,
-    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderRadius: 8,
     height: 56,
     width: 56,
   },
   stylistInfo: {
     flex: 1,
-    marginLeft: 14,
-    marginRight: 8,
+    marginLeft: spacing.lg,
+    marginRight: spacing.sm,
   },
   stylistName: {
-    color: TEXT_PRIMARY,
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
+    ...typography.h3,
+    marginBottom: spacing.xs,
   },
   stylistSpecialty: {
-    color: TEXT_MUTED,
-    fontSize: 14,
+    ...typography.caption,
   },
   topRatedBadge: {
     alignItems: 'center',
-    backgroundColor: '#F5D78C',
+    backgroundColor: colors.gold,
     borderRadius: 8,
     flexDirection: 'row',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   topRatedText: {
-    color: TEXT_PRIMARY,
+    ...typography.bodyBold,
     fontSize: 11,
-    fontWeight: '600',
   },
   footer: {
-    backgroundColor: BG,
-    borderTopColor: BORDER,
-    borderTopWidth: 1,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-  },
-  continueBtn: {
-    alignItems: 'center',
-    backgroundColor: PRIMARY,
-    borderRadius: 16,
-    paddingVertical: 16,
-  },
-  continueBtnDisabled: { backgroundColor: '#D1D5DB' },
-  continueBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
   },
   errorText: {
-    color: '#DC2626',
+    color: colors.error,
     fontSize: 14,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
     textAlign: 'center',
   },
-  retryBtn: {
-    backgroundColor: PRIMARY,
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  retryBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
   emptyText: {
-    color: TEXT_MUTED,
-    fontSize: 14,
-    paddingTop: 16,
+    ...typography.caption,
+    paddingTop: spacing.lg,
     textAlign: 'center',
   },
 });
