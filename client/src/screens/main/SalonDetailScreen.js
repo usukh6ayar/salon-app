@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
+  ImageBackground,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,79 +10,60 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import apiClient from '../../api/client';
 import useBookingStore from '../../store/bookingStore';
 
 const PRIMARY = '#2B61F5';
+const BG = '#F5F5F7';
+const CARD = '#FFFFFF';
 const TEXT_PRIMARY = '#111827';
 const TEXT_SECONDARY = '#6B7280';
 const TEXT_MUTED = '#9CA3AF';
 const BORDER = '#E5E7EB';
-const SURFACE = '#F5F5F7';
-const HERO_HEIGHT = 280;
+
 const PLACEHOLDER_SALON_IMAGE =
   'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800&q=80';
-const PLACEHOLDER_STYLIST_IMAGE =
-  'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&q=80';
+const CATEGORY_TABS = [
+  { id: 'all', label: 'Бүгд' },
+  { id: 'haircut', label: 'Үс засалт' },
+  { id: 'style', label: 'Үс стил' },
+  { id: 'treatment', label: 'Үсний уураг' },
+  { id: 'set', label: 'Сет' },
+  { id: 'nails', label: 'Хумс будаг' },
+];
 
-function getPhotoUrls(salon) {
+function getHeroImage(salon) {
   const urls = salon?.photo_urls;
-
-  if (Array.isArray(urls) && urls.length > 0) {
-    return urls.filter(Boolean);
-  }
-
-  if (typeof urls === 'string' && urls.length > 0) {
-    return [urls];
-  }
-
-  return [PLACEHOLDER_SALON_IMAGE];
+  if (Array.isArray(urls) && urls[0]) return urls[0];
+  if (typeof urls === 'string' && urls) return urls;
+  return PLACEHOLDER_SALON_IMAGE;
 }
 
 function formatPrice(price) {
   const value = Number(price);
-  if (Number.isNaN(value)) {
-    return '₮0';
-  }
-  return `₮${value.toLocaleString('mn-MN')}`;
+  return Number.isNaN(value) ? '₮0' : `₮${value.toLocaleString('mn-MN')}`;
 }
 
 function formatDuration(minutes) {
   const value = Number(minutes);
-  if (Number.isNaN(value)) {
-    return '—';
-  }
-  return `${value} мин`;
+  return Number.isNaN(value) ? '—' : `${value} мин`;
 }
 
 function formatRating(rating) {
   const value = Number(rating);
-  if (Number.isNaN(value)) {
-    return '0.0';
-  }
-  return value.toFixed(1);
+  return Number.isNaN(value) ? '0.0' : value.toFixed(1);
 }
 
-function formatSpecialties(specialties) {
-  if (Array.isArray(specialties) && specialties.length > 0) {
-    return specialties.join(', ');
-  }
-  if (typeof specialties === 'string' && specialties.length > 0) {
-    return specialties;
-  }
-  return 'Үйлчилгээний мэргэжилтэн';
-}
-
-function getStylistImage(stylist) {
-  if (stylist?.photo_url && !stylist.photo_url.includes('example.com')) {
-    return stylist.photo_url;
-  }
-  return PLACEHOLDER_STYLIST_IMAGE;
+function cardShadow() {
+  return {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  };
 }
 
 export default function SalonDetailScreen() {
@@ -91,79 +72,88 @@ export default function SalonDetailScreen() {
   const insets = useSafeAreaInsets();
 
   const paramSalon = route.params?.salon;
-  const setSalon = useBookingStore((state) => state.setSalon);
-  const setService = useBookingStore((state) => state.setService);
-  const setStylist = useBookingStore((state) => state.setStylist);
+  const setSalon = useBookingStore((s) => s.setSalon);
+  const setService = useBookingStore((s) => s.setService);
+  const setStylist = useBookingStore((s) => s.setStylist);
 
   const [salon, setSalonData] = useState(paramSalon ?? null);
-  const [stylists, setStylists] = useState([]);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedService, setSelectedService] = useState(null);
-  const [selectedStylist, setSelectedStylist] = useState(null);
+  const [activeTab, setActiveTab] = useState('haircut');
+  const [selectedServices, setSelectedServices] = useState([]);
   const [isFavorite, setIsFavorite] = useState(false);
-  const [validationError, setValidationError] = useState('');
 
-  const photos = useMemo(() => getPhotoUrls(salon), [salon]);
-  const heroImage = photos[0];
+  const selectedCount = selectedServices.length;
+  const canContinue = selectedCount > 0;
+
+  const filteredServices = useMemo(() => {
+    if (activeTab === 'all') return services;
+    if (activeTab === 'haircut') {
+      return services.filter((s) => /тайрах|засалт/i.test(s.name));
+    }
+    if (activeTab === 'style') {
+      return services.filter((s) => /загвар|стил/i.test(s.name));
+    }
+    if (activeTab === 'treatment') {
+      return services.filter((s) => /эмчилгээ|уураг/i.test(s.name));
+    }
+    if (activeTab === 'nails') {
+      return services.filter((s) => /хумс|маник/i.test(s.name));
+    }
+    return services;
+  }, [activeTab, services]);
 
   useEffect(() => {
     const salonId = paramSalon?.id;
-
     if (!salonId) {
       setError('Салоны мэдээлэл олдсонгүй');
       setLoading(false);
       return;
     }
 
-    const fetchSalonDetails = async () => {
-      setError('');
+    const load = async () => {
       setLoading(true);
-
+      setError('');
       try {
-        const [salonRes, stylistsRes, servicesRes] = await Promise.all([
+        const [salonRes, servicesRes] = await Promise.all([
           apiClient.get(`/api/salons/${salonId}`),
-          apiClient.get(`/api/salons/${salonId}/stylists`),
           apiClient.get(`/api/salons/${salonId}/services`),
         ]);
-
         setSalonData(salonRes.data);
-        setStylists(Array.isArray(stylistsRes.data) ? stylistsRes.data : []);
         setServices(Array.isArray(servicesRes.data) ? servicesRes.data : []);
       } catch (err) {
-        const message =
-          err.response?.data?.error || 'Салоны мэдээлэл ачаалахад алдаа гарлаа';
-        setError(message);
+        setError(err.response?.data?.error || 'Салоны мэдээлэл ачаалахад алдаа гарлаа');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSalonDetails();
+    load();
   }, [paramSalon?.id]);
 
-  const handleBook = () => {
-    setValidationError('');
+  const toggleService = (service) => {
+    setSelectedServices((prev) => {
+      const exists = prev.some((item) => item.id === service.id);
+      if (exists) {
+        return prev.filter((item) => item.id !== service.id);
+      }
+      return [...prev, service];
+    });
+  };
 
-    if (!selectedService || !selectedStylist) {
-      setValidationError('Үйлчилгээ болон мастераа сонгоно уу');
-      return;
-    }
-
-    if (!salon) {
-      return;
-    }
+  const handleContinue = () => {
+    if (!canContinue || !salon) return;
 
     setSalon(salon);
-    setService(selectedService);
-    setStylist(selectedStylist);
-    navigation.navigate('DateTime');
+    setService(selectedServices[0]);
+    setStylist(null);
+    navigation.navigate('StylistSelect');
   };
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.centered}>
         <ActivityIndicator size="large" color={PRIMARY} />
       </View>
     );
@@ -171,14 +161,12 @@ export default function SalonDetailScreen() {
 
   if (error || !salon) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error || 'Салон олдсонгүй'}</Text>
-          <Pressable style={styles.retryButton} onPress={() => navigation.goBack()}>
-            <Text style={styles.retryButtonText}>Буцах</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>{error || 'Салон олдсонгүй'}</Text>
+        <Pressable style={styles.primaryBtn} onPress={() => navigation.goBack()}>
+          <Text style={styles.primaryBtnText}>Буцах</Text>
+        </Pressable>
+      </View>
     );
   }
 
@@ -186,29 +174,49 @@ export default function SalonDetailScreen() {
     <View style={styles.screen}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.scroll}
       >
-        <View style={styles.heroWrap}>
-          <Image source={{ uri: heroImage }} style={styles.heroImage} />
-          <View style={[styles.heroActions, { top: insets.top + 8 }]}>
-            <Pressable style={styles.iconButton} onPress={() => navigation.goBack()}>
-              <Ionicons name="chevron-back" size={22} color={TEXT_PRIMARY} />
-            </Pressable>
-            <Pressable
-              style={styles.iconButton}
-              onPress={() => setIsFavorite((value) => !value)}
-            >
-              <Ionicons
-                name={isFavorite ? 'heart' : 'heart-outline'}
-                size={22}
-                color={isFavorite ? '#EF4444' : TEXT_PRIMARY}
-              />
-            </Pressable>
-          </View>
+        <View style={[styles.heroContainer, { marginTop: insets.top + 8 }]}>
+          <ImageBackground
+            source={{ uri: getHeroImage(salon) }}
+            style={styles.heroImage}
+            imageStyle={styles.heroImageInner}
+          >
+            <View style={styles.heroGradient} />
+            <View style={styles.heroTopBar}>
+              <Pressable style={styles.heroIconBtn} onPress={() => navigation.goBack()}>
+                <Ionicons name="chevron-back" size={22} color={TEXT_PRIMARY} />
+              </Pressable>
+              <Pressable
+                style={styles.heroIconBtn}
+                onPress={() => setIsFavorite((v) => !v)}
+              >
+                <Ionicons
+                  name={isFavorite ? 'heart' : 'heart-outline'}
+                  size={22}
+                  color={isFavorite ? '#EF4444' : TEXT_PRIMARY}
+                />
+              </Pressable>
+            </View>
+          </ImageBackground>
         </View>
 
-        <View style={styles.content}>
-          <Text style={styles.salonName}>{salon.name}</Text>
+        <View style={styles.body}>
+          <Text style={styles.title}>{salon.name}</Text>
+
+          <View style={styles.ratingRow}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Ionicons
+                key={star}
+                name={
+                  star <= Math.round(Number(salon.rating) || 0) ? 'star' : 'star-outline'
+                }
+                size={16}
+                color="#FBBF24"
+              />
+            ))}
+            <Text style={styles.ratingText}>{formatRating(salon.rating)}</Text>
+          </View>
 
           <View style={styles.metaRow}>
             <Ionicons name="location-outline" size={16} color={TEXT_MUTED} />
@@ -223,120 +231,76 @@ export default function SalonDetailScreen() {
             <Text style={styles.metaText}>09:00 - 19:00, Даваа - Ням</Text>
           </View>
 
-          <View style={styles.metaRow}>
-            <Ionicons name="star" size={16} color="#FBBF24" />
-            <Text style={styles.metaText}>{formatRating(salon.rating)}</Text>
-          </View>
-
           {salon.description ? (
             <Text style={styles.description}>{salon.description}</Text>
           ) : null}
 
-          {photos.length > 1 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.photoStrip}
-            >
-              {photos.map((uri, index) => (
-                <Image
-                  key={`${uri}-${index}`}
-                  source={{ uri }}
-                  style={styles.photoThumb}
-                />
-              ))}
-            </ScrollView>
-          ) : null}
-
           <Text style={styles.sectionTitle}>Үйлчилгээнүүд</Text>
-          {services.length === 0 ? (
-            <Text style={styles.emptySectionText}>Үйлчилгээ байхгүй</Text>
-          ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
-            >
-              {services.map((service) => {
-                const isSelected = selectedService?.id === service.id;
 
-                return (
-                  <Pressable
-                    key={service.id}
-                    style={[styles.serviceCard, isSelected && styles.cardSelected]}
-                    onPress={() => setSelectedService(service)}
-                  >
-                    <Text style={styles.serviceName} numberOfLines={2}>
-                      {service.name}
-                    </Text>
-                    <View style={styles.serviceMetaRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabsRow}
+          >
+            {CATEGORY_TABS.map((tab) => {
+              const active = activeTab === tab.id;
+              return (
+                <Pressable key={tab.id} onPress={() => setActiveTab(tab.id)}>
+                  <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
+                    {tab.label}
+                  </Text>
+                  {active ? <View style={styles.tabUnderline} /> : null}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {filteredServices.length === 0 ? (
+            <Text style={styles.emptyText}>Үйлчилгээ олдсонгүй</Text>
+          ) : (
+            filteredServices.map((service) => {
+              const selected = selectedServices.some((item) => item.id === service.id);
+              return (
+                <Pressable
+                  key={service.id}
+                  style={[styles.serviceRowCard, cardShadow()]}
+                  onPress={() => toggleService(service)}
+                >
+                  <View style={styles.serviceRowInfo}>
+                    <Text style={styles.serviceRowTitle}>{service.name}</Text>
+                    <Text style={styles.serviceRowPrice}>{formatPrice(service.price)}</Text>
+                    <View style={styles.durationRow}>
                       <Ionicons name="time-outline" size={14} color={TEXT_MUTED} />
-                      <Text style={styles.serviceMeta}>
+                      <Text style={styles.serviceRowDuration}>
                         {formatDuration(service.duration_minutes)}
                       </Text>
                     </View>
-                    <Text style={styles.servicePrice}>
-                      {formatPrice(service.price)}
-                    </Text>
-                    {isSelected ? (
-                      <View style={styles.selectedBadge}>
-                        <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                      </View>
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+                  </View>
+                  {selected ? (
+                    <View style={styles.checkCircle}>
+                      <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                    </View>
+                  ) : (
+                    <View style={styles.plusCircle}>
+                      <Ionicons name="add" size={20} color={TEXT_PRIMARY} />
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })
           )}
-
-          <Text style={styles.sectionTitle}>Мастерууд</Text>
-          {stylists.length === 0 ? (
-            <Text style={styles.emptySectionText}>Мастер байхгүй</Text>
-          ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
-            >
-              {stylists.map((stylist) => {
-                const isSelected = selectedStylist?.id === stylist.id;
-
-                return (
-                  <Pressable
-                    key={stylist.id}
-                    style={[styles.stylistCard, isSelected && styles.cardSelected]}
-                    onPress={() => setSelectedStylist(stylist)}
-                  >
-                    <Image
-                      source={{ uri: getStylistImage(stylist) }}
-                      style={styles.stylistPhoto}
-                    />
-                    <Text style={styles.stylistName} numberOfLines={1}>
-                      {stylist.name}
-                    </Text>
-                    <Text style={styles.stylistSpecialties} numberOfLines={2}>
-                      {formatSpecialties(stylist.specialties)}
-                    </Text>
-                    {isSelected ? (
-                      <View style={styles.selectedBadgeSmall}>
-                        <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-                      </View>
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          )}
-
-          {validationError ? (
-            <Text style={styles.validationError}>{validationError}</Text>
-          ) : null}
         </View>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-        <Pressable style={styles.bookButton} onPress={handleBook}>
-          <Text style={styles.bookButtonText}>Цаг захиалах</Text>
+        <Pressable
+          style={[styles.continueBtn, !canContinue && styles.continueBtnDisabled]}
+          onPress={handleContinue}
+          disabled={!canContinue}
+        >
+          <Text style={styles.continueBtnText}>
+            Үргэлжлүүлэх ({selectedCount})
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -344,96 +308,66 @@ export default function SalonDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    backgroundColor: '#FFFFFF',
-    flex: 1,
-  },
-  safeArea: {
-    backgroundColor: '#FFFFFF',
-    flex: 1,
-  },
-  loadingContainer: {
+  screen: { backgroundColor: BG, flex: 1 },
+  centered: {
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  errorContainer: {
-    alignItems: 'center',
+    backgroundColor: BG,
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
-  errorText: {
-    color: '#DC2626',
-    fontSize: 15,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: PRIMARY,
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  scrollContent: {
-    paddingBottom: 120,
-  },
-  heroWrap: {
-    height: HERO_HEIGHT,
-    position: 'relative',
-  },
+  scroll: { paddingBottom: 120 },
+  heroContainer: { paddingHorizontal: 20 },
   heroImage: {
-    height: HERO_HEIGHT,
+    borderRadius: 16,
+    height: 220,
+    overflow: 'hidden',
     width: '100%',
   },
-  heroActions: {
+  heroImageInner: { borderRadius: 16 },
+  heroGradient: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.18)',
+  },
+  heroTopBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    left: 20,
-    position: 'absolute',
-    right: 20,
+    padding: 14,
   },
-  iconButton: {
+  heroIconBtn: {
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    height: 44,
+    backgroundColor: CARD,
+    borderRadius: 12,
+    height: 40,
     justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    width: 44,
-    elevation: 3,
+    width: 40,
+    ...cardShadow(),
   },
-  content: {
-    marginTop: -24,
-    paddingHorizontal: 20,
-  },
-  salonName: {
+  body: { paddingHorizontal: 20, paddingTop: 18 },
+  title: {
     color: TEXT_PRIMARY,
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '700',
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  ratingRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+    marginBottom: 10,
+  },
+  ratingText: {
+    color: TEXT_SECONDARY,
+    fontSize: 14,
+    marginLeft: 6,
   },
   metaRow: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  metaText: {
-    color: TEXT_SECONDARY,
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
-  },
+  metaText: { color: TEXT_SECONDARY, flex: 1, fontSize: 14 },
   description: {
     color: TEXT_SECONDARY,
     fontSize: 14,
@@ -441,140 +375,65 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     marginTop: 8,
   },
-  photoStrip: {
-    gap: 10,
-    marginBottom: 20,
-    paddingRight: 4,
-  },
-  photoThumb: {
-    backgroundColor: SURFACE,
-    borderRadius: 14,
-    height: 72,
-    width: 96,
-  },
   sectionTitle: {
     color: TEXT_PRIMARY,
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 14,
-    marginTop: 8,
+    marginBottom: 12,
   },
-  horizontalList: {
-    gap: 12,
-    marginBottom: 24,
-    paddingRight: 4,
+  tabsRow: { gap: 20, marginBottom: 14, paddingRight: 8 },
+  tabLabel: { color: TEXT_MUTED, fontSize: 14, fontWeight: '600' },
+  tabLabelActive: { color: PRIMARY },
+  tabUnderline: {
+    backgroundColor: PRIMARY,
+    borderRadius: 2,
+    height: 3,
+    marginTop: 6,
+    width: '100%',
   },
-  serviceCard: {
-    backgroundColor: '#FFFFFF',
+  serviceRowCard: {
+    alignItems: 'center',
+    backgroundColor: CARD,
     borderColor: BORDER,
     borderRadius: 16,
     borderWidth: 1,
-    minHeight: 130,
-    padding: 14,
-    position: 'relative',
-    width: 160,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  stylistCard: {
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderColor: BORDER,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 12,
-    position: 'relative',
-    width: 130,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardSelected: {
-    borderColor: PRIMARY,
-    borderWidth: 2,
-  },
-  serviceName: {
-    color: TEXT_PRIMARY,
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 10,
-    minHeight: 40,
-  },
-  serviceMetaRow: {
-    alignItems: 'center',
     flexDirection: 'row',
-    gap: 4,
-    marginBottom: 8,
+    marginBottom: 12,
+    padding: 16,
   },
-  serviceMeta: {
-    color: TEXT_MUTED,
-    fontSize: 13,
-  },
-  servicePrice: {
+  serviceRowInfo: { flex: 1 },
+  serviceRowTitle: {
     color: TEXT_PRIMARY,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  stylistPhoto: {
-    backgroundColor: SURFACE,
-    borderRadius: 40,
-    height: 72,
-    marginBottom: 10,
-    width: 72,
-  },
-  stylistName: {
-    color: TEXT_PRIMARY,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     marginBottom: 4,
-    textAlign: 'center',
   },
-  stylistSpecialties: {
-    color: TEXT_MUTED,
-    fontSize: 12,
-    lineHeight: 16,
-    textAlign: 'center',
+  serviceRowPrice: {
+    color: TEXT_SECONDARY,
+    fontSize: 14,
+    marginBottom: 6,
   },
-  selectedBadge: {
+  durationRow: { alignItems: 'center', flexDirection: 'row', gap: 4 },
+  serviceRowDuration: { color: TEXT_MUTED, fontSize: 14 },
+  plusCircle: {
+    alignItems: 'center',
+    borderColor: TEXT_PRIMARY,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  checkCircle: {
     alignItems: 'center',
     backgroundColor: PRIMARY,
-    borderRadius: 12,
-    height: 24,
+    borderRadius: 18,
+    height: 36,
     justifyContent: 'center',
-    position: 'absolute',
-    right: 10,
-    top: 10,
-    width: 24,
-  },
-  selectedBadgeSmall: {
-    alignItems: 'center',
-    backgroundColor: PRIMARY,
-    borderRadius: 10,
-    height: 20,
-    justifyContent: 'center',
-    position: 'absolute',
-    right: 8,
-    top: 8,
-    width: 20,
-  },
-  emptySectionText: {
-    color: TEXT_MUTED,
-    fontSize: 14,
-    marginBottom: 20,
-  },
-  validationError: {
-    color: '#DC2626',
-    fontSize: 14,
-    marginBottom: 8,
-    textAlign: 'center',
+    width: 36,
   },
   footer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: BG,
     borderTopColor: BORDER,
     borderTopWidth: 1,
     bottom: 0,
@@ -584,15 +443,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
   },
-  bookButton: {
+  continueBtn: {
     alignItems: 'center',
     backgroundColor: PRIMARY,
-    borderRadius: 14,
+    borderRadius: 16,
     paddingVertical: 16,
   },
-  bookButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+  continueBtnDisabled: { backgroundColor: '#D1D5DB' },
+  continueBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  errorText: { color: '#DC2626', fontSize: 14, marginBottom: 16, textAlign: 'center' },
+  emptyText: { color: TEXT_MUTED, fontSize: 14, marginBottom: 16 },
+  primaryBtn: {
+    backgroundColor: PRIMARY,
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
+  primaryBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
 });
