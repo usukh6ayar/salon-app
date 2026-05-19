@@ -1,17 +1,188 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+
+import apiClient from '../../api/client';
+import useAuthStore from '../../store/authStore';
+
+const PRIMARY = '#6C63FF';
 
 export default function LoginScreen() {
+  const navigation = useNavigation();
+  const login = useAuthStore((state) => state.login);
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleLogin = async () => {
+    setError('');
+
+    if (!email.trim() || !password) {
+      setError('Имэйл болон нууц үгээ оруулна уу');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data } = await apiClient.post('/api/auth/login', {
+        email: email.trim(),
+        password,
+      });
+
+      await login(data.user, data.token);
+    } catch (err) {
+      const message =
+        err.response?.data?.error || 'Нэвтрэхэд алдаа гарлаа. Дахин оролдоно уу';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <View style={styles.container}>
-      <Text>Login Screen</Text>
-    </View>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={styles.title}>Нэвтрэх</Text>
+
+        <View style={styles.field}>
+          <Text style={styles.label}>Имэйл</Text>
+          <TextInput
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="example@email.com"
+            placeholderTextColor="#9CA3AF"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!loading}
+          />
+        </View>
+
+        <View style={styles.field}>
+          <Text style={styles.label}>Нууц үг</Text>
+          <TextInput
+            style={styles.input}
+            value={password}
+            onChangeText={setPassword}
+            placeholder="••••••••"
+            placeholderTextColor="#9CA3AF"
+            secureTextEntry
+            editable={!loading}
+          />
+        </View>
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <Pressable
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.buttonText}>Нэвтрэх</Text>
+          )}
+        </Pressable>
+
+        <Pressable
+          style={styles.linkButton}
+          onPress={() => navigation.navigate('Register')}
+          disabled={loading}
+        >
+          <Text style={styles.linkText}>Бүртгэл үүсгэх</Text>
+        </Pressable>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 32,
+  },
+  title: {
+    color: '#111827',
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 32,
+    textAlign: 'center',
+  },
+  field: {
+    marginBottom: 16,
+  },
+  label: {
+    color: '#374151',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    borderWidth: 1,
+    color: '#111827',
+    fontSize: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  error: {
+    color: '#DC2626',
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  button: {
+    alignItems: 'center',
+    backgroundColor: PRIMARY,
+    borderRadius: 12,
+    marginTop: 8,
+    paddingVertical: 16,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  linkButton: {
+    alignItems: 'center',
+    marginTop: 24,
+    paddingVertical: 8,
+  },
+  linkText: {
+    color: PRIMARY,
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
