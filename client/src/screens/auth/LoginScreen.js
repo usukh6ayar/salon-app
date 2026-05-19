@@ -42,10 +42,22 @@ export default function LoginScreen() {
         password,
       });
 
+      if (!data?.token || !data?.user) {
+        setError('Серверийн хариу буруу байна');
+        return;
+      }
+
       await login(data.user, data.token);
     } catch (err) {
-      const message =
-        err.response?.data?.error || 'Нэвтрэхэд алдаа гарлаа. Дахин оролдоно уу';
+      let message = 'Нэвтрэхэд алдаа гарлаа. Дахин оролдоно уу';
+
+      if (err.response?.data?.error) {
+        message = err.response.data.error;
+      } else if (err.message === 'Network Error') {
+        message =
+          'Серверт холбогдож чадсангүй. Компьютер болон утас ижил Wi‑Fi дээр байгаа эсэхийг шалгана уу';
+      }
+
       setError(message);
     } finally {
       setLoading(false);
