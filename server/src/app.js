@@ -5,6 +5,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 const { testConnection } = require('./db');
 const authRoutes = require('./routes/auth');
+const salonRoutes = require('./routes/salons');
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/salons', salonRoutes);
 
 const PORT = process.env.PORT || 3000;
 
