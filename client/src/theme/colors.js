@@ -1,5 +1,6 @@
 export const colors = {
   primary: '#2B61F5',
+  black: '#1A1A1A',
   gold: '#C9A96E',
   background: '#F5F5F7',
   card: '#FFFFFF',

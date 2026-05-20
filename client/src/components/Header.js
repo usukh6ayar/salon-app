@@ -18,7 +18,7 @@ export default function Header({ title, onBack }) {
   return (
     <View style={styles.header}>
       <Pressable style={styles.backBtn} onPress={handleBack} hitSlop={8}>
-        <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+        <Ionicons name="chevron-back" size={24} color={colors.black} />
       </Pressable>
       <Text style={styles.title}>{title}</Text>
     </View>
@@ -28,10 +28,10 @@ export default function Header({ title, onBack }) {
 const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
-    backgroundColor: colors.card,
+    backgroundColor: colors.white,
     flexDirection: 'row',
+    height: 52,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
   },
   backBtn: {
     alignItems: 'center',
@@ -41,8 +41,8 @@ const styles = StyleSheet.create({
     width: 40,
   },
   title: {
-    ...typography.h2,
+    ...typography.h3,
+    color: colors.black,
     flex: 1,
-    fontSize: 18,
   },
 });

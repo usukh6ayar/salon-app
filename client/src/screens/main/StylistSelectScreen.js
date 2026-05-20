@@ -7,11 +7,10 @@ import {
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import apiClient from '../../api/client';
-import { Button, Card, Header, LoadingScreen } from '../../components';
+import { Button, Card, Header, LoadingScreen, ScreenFooter } from '../../components';
 import useBookingStore from '../../store/bookingStore';
 import { colors, spacing, typography } from '../../theme';
 
@@ -73,8 +72,6 @@ function StylistCard({ stylist, isSelected, isTopRated, onPress }) {
 
 export default function StylistSelectScreen() {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
-
   const selectedSalon = useBookingStore((s) => s.selectedSalon);
   const setStylist = useBookingStore((s) => s.setStylist);
 
@@ -147,7 +144,7 @@ export default function StylistSelectScreen() {
   };
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.white }}>
       <Header title="Стилистээ сонго" />
 
       {loading ? (
@@ -160,6 +157,7 @@ export default function StylistSelectScreen() {
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
+          style={{ flex: 1, backgroundColor: colors.background }}
           contentContainerStyle={styles.listContent}
         >
           <OptionCard
@@ -196,23 +194,19 @@ export default function StylistSelectScreen() {
       )}
 
       {!loading && !error ? (
-        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+        <ScreenFooter>
           <Button
             title="Сонгох & Үргэлжлүүлэх"
             onPress={handleContinue}
             disabled={!hasSelection}
           />
-        </View>
+        </ScreenFooter>
       ) : null}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    backgroundColor: colors.background,
-    flex: 1,
-  },
   centered: {
     alignItems: 'center',
     flex: 1,
@@ -222,7 +216,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: spacing.xl,
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
   },
   optionCard: {
     marginBottom: spacing.md,
@@ -287,11 +281,6 @@ const styles = StyleSheet.create({
   topRatedText: {
     ...typography.bodyBold,
     fontSize: 11,
-  },
-  footer: {
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
   },
   errorText: {
     color: colors.error,

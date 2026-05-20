@@ -1,7 +1,7 @@
 import 'react-native-gesture-handler';
 
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -19,6 +19,7 @@ export default function App() {
   if (!isReady) {
     return (
       <SafeAreaProvider>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#6C63FF" />
         </View>
@@ -28,6 +29,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <NavigationContainer>
         <AppNavigator />
       </NavigationContainer>

@@ -10,10 +10,10 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import apiClient from '../../api/client';
-import { Button, Header } from '../../components';
+import { Button, Header, ScreenFooter } from '../../components';
 import useBookingStore from '../../store/bookingStore';
 import { colors, shadows, spacing, typography } from '../../theme';
 
@@ -198,11 +198,12 @@ export default function DateTimeScreen() {
     quickDates.some((quickDate) => isSameDay(quickDate, date));
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.white }}>
       <Header title="Огноо, цаг" />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
+        style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={styles.scrollContent}
       >
         <Text style={styles.sectionTitle}>Огноог сонгох</Text>
@@ -313,13 +314,13 @@ export default function DateTimeScreen() {
         )}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+      <ScreenFooter>
         <Button
           title="Захиалга баталгаажуулах"
           onPress={handleContinue}
           disabled={!canContinue}
         />
-      </View>
+      </ScreenFooter>
 
       <Modal
         visible={pickerVisible}
@@ -353,19 +354,15 @@ export default function DateTimeScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    backgroundColor: colors.background,
-    flex: 1,
-  },
   scrollContent: {
     paddingBottom: 120,
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
   },
   sectionTitle: {
     ...typography.h3,
@@ -470,11 +467,6 @@ const styles = StyleSheet.create({
     color: colors.promo,
     fontSize: 14,
     fontWeight: '600',
-  },
-  footer: {
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
   },
   modalOverlay: {
     backgroundColor: colors.overlay,
