@@ -9,12 +9,12 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import apiClient from '../../api/client';
 import { Button, LoadingScreen } from '../../components';
 import useBookingStore from '../../store/bookingStore';
-import { colors, shadows, spacing, typography } from '../../theme';
+import { colors, spacing, typography } from '../../theme';
 
 const PLACEHOLDER_SALON_IMAGE =
   'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800&q=80';
@@ -41,7 +41,7 @@ function formatPrice(price) {
 
 function formatDuration(minutes) {
   const value = Number(minutes);
-  return Number.isNaN(value) ? '—' : `${value} Mins`;
+  return Number.isNaN(value) ? '' : `${value} Mins`;
 }
 
 function formatRating(rating) {
@@ -71,11 +71,9 @@ function groupServicesByCategory(services) {
   });
   services.forEach((service) => {
     const category = getServiceCategory(service);
-    if (grouped[category]) {
-      grouped[category].push(service);
-    } else {
-      grouped.haircut.push(service);
-    }
+    grouped[category]
+      ? grouped[category].push(service)
+      : grouped.haircut.push(service);
   });
   return grouped;
 }
@@ -105,8 +103,7 @@ export default function SalonDetailScreen() {
 
   const filteredServices = useMemo(() => {
     const tabServices = servicesByCategory[activeTab] ?? [];
-    if (tabServices.length > 0) return tabServices;
-    return services;
+    return tabServices.length > 0 ? tabServices : services;
   }, [activeTab, services, servicesByCategory]);
 
   const selectedCount = selectedServices.length;
@@ -133,12 +130,8 @@ export default function SalonDetailScreen() {
         setServices(list);
 
         const grouped = groupServicesByCategory(list);
-        const firstTabWithServices = CATEGORY_TABS.find(
-          (tab) => (grouped[tab.id] ?? []).length > 0,
-        );
-        if (firstTabWithServices) {
-          setActiveTab(firstTabWithServices.id);
-        }
+        const firstTab = CATEGORY_TABS.find((tab) => (grouped[tab.id] ?? []).length > 0);
+        if (firstTab) setActiveTab(firstTab.id);
       } catch (err) {
         setError(err.response?.data?.error || 'Салоны мэдээлэл ачаалахад алдаа гарлаа');
       } finally {
@@ -152,10 +145,7 @@ export default function SalonDetailScreen() {
   const toggleService = (service) => {
     setSelectedServices((prev) => {
       const exists = prev.some((item) => item.id === service.id);
-      if (exists) {
-        return prev.filter((item) => item.id !== service.id);
-      }
-      return [...prev, service];
+      return exists ? prev.filter((item) => item.id !== service.id) : [...prev, service];
     });
   };
 
@@ -167,9 +157,7 @@ export default function SalonDetailScreen() {
     navigation.navigate('StylistSelect');
   };
 
-  if (loading) {
-    return <LoadingScreen />;
-  }
+  if (loading) return <LoadingScreen />;
 
   if (error || !salon) {
     return (
@@ -183,47 +171,61 @@ export default function SalonDetailScreen() {
   const addressLine = [salon.address, salon.city].filter(Boolean).join(', ');
 
   return (
-    <View style={styles.screen}>
+    <View style={styles.root}>
+      {/* Fixed top navigation — outside scroll, clears status bar */}
+      <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
+        <Pressable
+          style={styles.navBtn}
+          onPress={() => navigation.goBack()}
+          hitSlop={8}
+        >
+          <Ionicons name="chevron-back" size={24} color={colors.black} />
+        </Pressable>
+        <Pressable
+          style={styles.navBtn}
+          onPress={() => setIsFavorite((v) => !v)}
+          hitSlop={8}
+        >
+          <Ionicons
+            name={isFavorite ? 'heart' : 'heart-outline'}
+            size={24}
+            color={isFavorite ? colors.favorite : colors.textPrimary}
+          />
+        </Pressable>
+      </View>
+
+      {/* Scrollable content */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.scroll,
-          { paddingTop: insets.top + spacing.sm },
-        ]}
+        contentContainerStyle={{ paddingBottom: canContinue ? 96 : 32 }}
       >
-        <View style={styles.topBar}>
-          <Pressable style={styles.iconBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
-          </Pressable>
-          <Pressable style={styles.iconBtn} onPress={() => setIsFavorite((v) => !v)}>
-            <Ionicons
-              name={isFavorite ? 'heart' : 'heart-outline'}
-              size={22}
-              color={isFavorite ? colors.favorite : colors.textPrimary}
-            />
-          </Pressable>
-        </View>
+        {/* Hero image — full width, no padding */}
+        <Image
+          source={{ uri: getHeroImage(salon) }}
+          style={styles.heroImage}
+          resizeMode="cover"
+        />
 
-        <Image source={{ uri: getHeroImage(salon) }} style={styles.heroImage} />
-
-        <View style={styles.body}>
+        {/* Salon info section */}
+        <View style={styles.infoSection}>
           <Text style={styles.salonName}>{salon.name}</Text>
 
           <View style={styles.metaRow}>
-            <Ionicons name="location-outline" size={16} color={colors.textMuted} />
-            <Text style={styles.metaText}>{addressLine}</Text>
+            <Ionicons name="location-outline" size={15} color={colors.textMuted} />
+            <Text style={styles.metaText}>{addressLine || '—'}</Text>
           </View>
 
           <View style={styles.metaRow}>
-            <Ionicons name="time-outline" size={16} color={colors.textMuted} />
-            <Text style={styles.metaText}>9AM-10PM, Mon-Sun</Text>
+            <Ionicons name="time-outline" size={15} color={colors.textMuted} />
+            <Text style={styles.metaText}>9AM-10PM, Mon -Sun</Text>
           </View>
 
           <View style={styles.metaRow}>
-            <Ionicons name="star" size={16} color={colors.gold} />
-            <Text style={styles.metaText}>
-              {formatRating(salon.rating)} ({getReviewCount(salon)})
+            <Ionicons name="star" size={15} color={colors.gold} />
+            <Text style={[styles.metaText, styles.ratingText]}>
+              {formatRating(salon.rating)}
             </Text>
+            <Text style={styles.metaText}>({getReviewCount(salon)})</Text>
           </View>
 
           {salon.description ? (
@@ -231,21 +233,24 @@ export default function SalonDetailScreen() {
               {salon.description}
             </Text>
           ) : null}
+        </View>
 
+        {/* Tab bar — full width with bottom border */}
+        <View style={styles.tabBar}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tabsRow}
+            contentContainerStyle={styles.tabsContent}
           >
             {CATEGORY_TABS.map((tab) => {
               const active = activeTab === tab.id;
               return (
                 <Pressable
                   key={tab.id}
-                  style={styles.tabItem}
+                  style={styles.tab}
                   onPress={() => setActiveTab(tab.id)}
                 >
-                  <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
+                  <Text style={[styles.tabText, active && styles.tabTextActive]}>
                     {tab.label}
                   </Text>
                   {active ? <View style={styles.tabUnderline} /> : null}
@@ -253,71 +258,67 @@ export default function SalonDetailScreen() {
               );
             })}
           </ScrollView>
+        </View>
 
-          <View style={[styles.serviceListCard, shadows.card]}>
-            {filteredServices.length === 0 ? (
-              <Text style={styles.emptyText}>Үйлчилгээ олдсонгүй</Text>
-            ) : (
-              filteredServices.map((service, index) => {
-                const selected = selectedServices.some((item) => item.id === service.id);
-                const isLast = index === filteredServices.length - 1;
-                return (
-                  <View key={service.id}>
-                    <View style={styles.serviceRow}>
-                      <View style={styles.serviceInfo}>
-                        <Text style={styles.serviceName}>{service.name}</Text>
-                        <View style={styles.serviceMeta}>
-                          <Text style={styles.servicePrice}>
-                            {formatPrice(service.price)}
-                          </Text>
-                          <Ionicons
-                            name="time-outline"
-                            size={14}
-                            color={colors.textMuted}
-                          />
-                          <Text style={styles.serviceDuration}>
-                            {formatDuration(service.duration_minutes)}
-                          </Text>
-                        </View>
+        {/* Service list */}
+        <View style={styles.serviceSection}>
+          {filteredServices.length === 0 ? (
+            <Text style={styles.emptyText}>Үйлчилгээ олдсонгүй</Text>
+          ) : (
+            filteredServices.map((service, index) => {
+              const selected = selectedServices.some((item) => item.id === service.id);
+              const isLast = index === filteredServices.length - 1;
+              return (
+                <View key={service.id}>
+                  <View style={styles.serviceRow}>
+                    <View style={styles.serviceInfo}>
+                      <Text style={styles.serviceName}>{service.name}</Text>
+                      <View style={styles.serviceMeta}>
+                        <Text style={styles.servicePrice}>{formatPrice(service.price)}</Text>
+                        <Ionicons name="time-outline" size={13} color={colors.textMuted} />
+                        <Text style={styles.serviceDuration}>
+                          {formatDuration(service.duration_minutes)}
+                        </Text>
                       </View>
-                      <Pressable
-                        style={[
-                          styles.addBtn,
-                          selected && styles.addBtnSelected,
-                        ]}
-                        onPress={() => toggleService(service)}
-                      >
-                        {selected ? (
-                          <Ionicons name="checkmark" size={18} color={colors.white} />
-                        ) : (
-                          <Ionicons name="add" size={20} color={colors.textPrimary} />
-                        )}
-                      </Pressable>
                     </View>
-                    {!isLast ? <View style={styles.divider} /> : null}
+                    <Pressable
+                      style={[styles.addBtn, selected && styles.addBtnSelected]}
+                      onPress={() => toggleService(service)}
+                      hitSlop={8}
+                    >
+                      {selected ? (
+                        <Ionicons name="checkmark" size={18} color={colors.white} />
+                      ) : (
+                        <Ionicons name="add" size={20} color={colors.textSecondary} />
+                      )}
+                    </Pressable>
                   </View>
-                );
-              })
-            )}
-          </View>
+                  {!isLast ? <View style={styles.divider} /> : null}
+                </View>
+              );
+            })
+          )}
         </View>
       </ScrollView>
 
+      {/* Floating continue button */}
       {canContinue ? (
-        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
-          <Button
-            title={`Үргэлжлүүлэх (${selectedCount})`}
-            onPress={handleContinue}
-          />
-        </View>
+        <SafeAreaView edges={['bottom']} style={styles.floatingFooter}>
+          <View style={styles.floatingInner}>
+            <Button
+              title={`Үргэлжлүүлэх (${selectedCount})`}
+              onPress={handleContinue}
+            />
+          </View>
+        </SafeAreaView>
       ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    backgroundColor: colors.background,
+  root: {
+    backgroundColor: colors.white,
     flex: 1,
   },
   centered: {
@@ -327,86 +328,115 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.xxl,
   },
-  scroll: {
-    paddingBottom: 120,
-    paddingHorizontal: spacing.xl,
+  errorText: {
+    color: colors.error,
+    fontSize: 14,
+    marginBottom: spacing.lg,
+    textAlign: 'center',
   },
+
+  // Top navigation
   topBar: {
+    alignItems: 'center',
+    backgroundColor: colors.white,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
-  iconBtn: {
+  navBtn: {
     alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 12,
     height: 40,
     justifyContent: 'center',
     width: 40,
-    ...shadows.card,
   },
+
+  // Hero image
   heroImage: {
-    borderRadius: 16,
-    height: 220,
-    marginBottom: spacing.lg,
+    height: 240,
     width: '100%',
   },
-  body: {
-    paddingBottom: spacing.xl,
+
+  // Info section
+  infoSection: {
+    backgroundColor: colors.white,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
   },
   salonName: {
-    ...typography.h2,
+    ...typography.h1,
     fontSize: 22,
     marginBottom: spacing.sm,
   },
   metaRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.xs,
     marginBottom: spacing.xs,
   },
   metaText: {
     ...typography.body,
-    flex: 1,
+    color: colors.textSecondary,
+    fontSize: 13,
+  },
+  ratingText: {
+    color: colors.textPrimary,
+    fontWeight: '700',
   },
   description: {
     ...typography.body,
-    lineHeight: 22,
-    marginBottom: spacing.lg,
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: spacing.md,
     marginTop: spacing.sm,
   },
-  tabsRow: {
-    gap: spacing.xl,
-    marginBottom: spacing.lg,
-    paddingRight: spacing.sm,
+
+  // Tab bar
+  tabBar: {
+    backgroundColor: colors.white,
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    marginTop: spacing.sm,
   },
-  tabItem: {
-    marginRight: spacing.xs,
+  tabsContent: {
+    paddingHorizontal: spacing.xl,
   },
-  tabLabel: {
+  tab: {
+    marginRight: spacing.xl,
+    paddingBottom: spacing.sm,
+    paddingTop: spacing.sm,
+    position: 'relative',
+  },
+  tabText: {
     ...typography.tab,
     color: colors.textMuted,
+    fontSize: 14,
   },
-  tabLabelActive: {
+  tabTextActive: {
     color: colors.primary,
   },
   tabUnderline: {
     backgroundColor: colors.primary,
-    borderRadius: 2,
-    height: 3,
-    marginTop: spacing.sm,
-    width: '100%',
+    borderRadius: 1,
+    bottom: -1,
+    height: 2,
+    left: 0,
+    position: 'absolute',
+    right: 0,
   },
-  serviceListCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    overflow: 'hidden',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xs,
+
+  // Service list
+  serviceSection: {
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
   },
   serviceRow: {
     alignItems: 'center',
+    backgroundColor: colors.white,
     flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
   },
   serviceInfo: {
@@ -424,14 +454,16 @@ const styles = StyleSheet.create({
   },
   servicePrice: {
     ...typography.body,
-    marginRight: spacing.sm,
+    color: colors.textSecondary,
+    marginRight: spacing.xs,
   },
   serviceDuration: {
     ...typography.caption,
+    fontSize: 13,
   },
   addBtn: {
     alignItems: 'center',
-    borderColor: colors.textPrimary,
+    borderColor: colors.border,
     borderRadius: 18,
     borderWidth: 1.5,
     height: 36,
@@ -445,25 +477,26 @@ const styles = StyleSheet.create({
   divider: {
     backgroundColor: colors.border,
     height: 1,
-  },
-  footer: {
-    backgroundColor: colors.background,
-    bottom: 0,
-    left: 0,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
-    position: 'absolute',
-    right: 0,
-  },
-  errorText: {
-    color: colors.error,
-    fontSize: 14,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
+    marginHorizontal: spacing.lg,
   },
   emptyText: {
     ...typography.caption,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.xl,
     textAlign: 'center',
+  },
+
+  // Floating footer
+  floatingFooter: {
+    backgroundColor: colors.white,
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+  },
+  floatingInner: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
 });
