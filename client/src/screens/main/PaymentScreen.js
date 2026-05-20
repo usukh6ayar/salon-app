@@ -218,7 +218,7 @@ export default function PaymentScreen() {
       setShowLoadingModal(false);
 
       if (paymentResult.success === true) {
-        setCompletedBooking(booking);
+        setCompletedBooking(paymentResult.booking ?? booking);
         setShowSuccessModal(true);
       } else {
         setShowFailedModal(true);

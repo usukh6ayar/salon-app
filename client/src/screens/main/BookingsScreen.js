@@ -7,12 +7,9 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import apiClient from '../../api/client';
-import { Button } from '../../components';
-import useAuthStore from '../../store/authStore';
 import { colors, spacing, typography } from '../../theme';
 
 const MONTH_LABELS = [
@@ -52,10 +49,7 @@ function StatusBadge({ status }) {
   );
 }
 
-export default function ProfileScreen() {
-  const user = useAuthStore((state) => state.user);
-  const logout = useAuthStore((state) => state.logout);
-
+export default function BookingsScreen() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(null);
@@ -92,47 +86,34 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView edges={['top']} style={styles.root}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Захиалгууд</Text>
+      </View>
+
       <ScrollView
         style={{ flex: 1, backgroundColor: colors.background }}
-        showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Profile card */}
-        <View style={styles.profileCard}>
-          <View style={styles.avatarCircle}>
-            <Ionicons name="person" size={36} color={colors.white} />
-          </View>
-          <View style={styles.profileInfo}>
-            <Text style={styles.userName}>{user?.name || '—'}</Text>
-            <Text style={styles.userDetail}>{user?.email || '—'}</Text>
-            {user?.phone ? (
-              <Text style={styles.userDetail}>{user.phone}</Text>
-            ) : null}
-          </View>
-        </View>
-
-        {/* Bookings section */}
-        <Text style={styles.sectionTitle}>Миний захиалгууд</Text>
-
         {loading ? (
           <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : bookings.length === 0 ? (
           <Text style={styles.emptyText}>Захиалга байхгүй байна</Text>
         ) : (
           bookings.map((booking) => (
-            <View key={booking.id} style={styles.bookingCard}>
-              <View style={styles.bookingHeader}>
-                <Text style={styles.bookingSalon}>{booking.salon_name}</Text>
+            <View key={booking.id} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.salonName}>{booking.salon_name}</Text>
                 <StatusBadge status={booking.status} />
               </View>
-              <Text style={styles.bookingMeta}>
+              <Text style={styles.meta}>
                 {formatDate(booking.booking_date)} · {formatTime(booking.booking_time)}
               </Text>
               {booking.stylist_name ? (
-                <Text style={styles.bookingMeta}>{booking.stylist_name}</Text>
+                <Text style={styles.meta}>{booking.stylist_name}</Text>
               ) : null}
               {booking.service_name ? (
-                <Text style={styles.bookingMeta}>{booking.service_name}</Text>
+                <Text style={styles.meta}>{booking.service_name}</Text>
               ) : null}
               {booking.status === 'pending' ? (
                 <Pressable
@@ -148,11 +129,6 @@ export default function ProfileScreen() {
             </View>
           ))
         )}
-
-        {/* Logout */}
-        <View style={styles.logoutSection}>
-          <Button title="Гарах" variant="outline" onPress={logout} />
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -163,65 +139,44 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     flex: 1,
   },
+  header: {
+    backgroundColor: colors.white,
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    height: 52,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  headerTitle: {
+    ...typography.h3,
+    fontSize: 18,
+  },
   content: {
     paddingBottom: 40,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.md,
   },
-  profileCard: {
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    flexDirection: 'row',
-    marginBottom: spacing.xl,
-    padding: spacing.lg,
-  },
-  avatarCircle: {
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 32,
-    height: 64,
-    justifyContent: 'center',
-    width: 64,
-  },
-  profileInfo: {
-    flex: 1,
-    marginLeft: spacing.lg,
-  },
-  userName: {
-    ...typography.h3,
-    fontSize: 18,
-    marginBottom: spacing.xs,
-  },
-  userDetail: {
-    ...typography.body,
-    marginTop: 2,
-  },
-  sectionTitle: {
-    ...typography.h3,
-    marginBottom: spacing.md,
-  },
   loader: {
-    marginTop: spacing.xl,
+    marginTop: 40,
   },
   emptyText: {
     ...typography.body,
-    marginBottom: spacing.xl,
+    marginTop: 40,
     textAlign: 'center',
   },
-  bookingCard: {
+  card: {
     backgroundColor: colors.card,
     borderRadius: 14,
     marginBottom: spacing.md,
     padding: spacing.lg,
   },
-  bookingHeader: {
+  cardHeader: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: spacing.xs,
   },
-  bookingSalon: {
+  salonName: {
     ...typography.bodyBold,
     flex: 1,
     marginRight: spacing.sm,
@@ -235,7 +190,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  bookingMeta: {
+  meta: {
     ...typography.caption,
     marginTop: 3,
   },
@@ -252,8 +207,5 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontSize: 13,
     fontWeight: '600',
-  },
-  logoutSection: {
-    marginTop: spacing.xl,
   },
 });

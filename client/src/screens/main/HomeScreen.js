@@ -148,7 +148,7 @@ export default function HomeScreen() {
 
       <View style={styles.greetingRow}>
         <View style={styles.greetingTextWrap}>
-          <Text style={styles.greetingTitle}>Сайн байна уу, {userName}!</Text>
+          <Text style={styles.greetingTitle}>Сайн уу. {userName}!</Text>
           <Text style={styles.greetingSubtitle}>
             Гоо сайхны үйлчилгээгээ одоо захиалаарай
           </Text>
