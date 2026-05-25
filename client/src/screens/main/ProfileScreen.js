@@ -1,6 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,85 +8,20 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import apiClient from '../../api/client';
 import { Button } from '../../components';
 import useAuthStore from '../../store/authStore';
 import { colors, spacing, typography } from '../../theme';
 
-const MONTH_LABELS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+const MENU_ITEMS = [
+  { icon: 'person-outline', label: 'Профайл засах' },
+  { icon: 'notifications-outline', label: 'Мэдэгдэл' },
+  { icon: 'lock-closed-outline', label: 'Нууц үг солих' },
+  { icon: 'help-circle-outline', label: 'Тусламж' },
 ];
-
-function formatDate(dateKey) {
-  if (!dateKey) return '—';
-  const [year, month, day] = dateKey.split('-').map(Number);
-  return `${MONTH_LABELS[month - 1]} ${day}, ${year}`;
-}
-
-function formatTime(time24) {
-  if (!time24) return '—';
-  const [h, m] = time24.split(':');
-  let hour = Number(h);
-  const period = hour >= 12 ? 'PM' : 'AM';
-  hour %= 12;
-  if (hour === 0) hour = 12;
-  return `${hour}:${m} ${period}`;
-}
-
-const STATUS_CONFIG = {
-  pending: { bg: '#FEF3C7', text: '#92400E', label: 'Хүлээгдэж байна' },
-  confirmed: { bg: '#D1FAE5', text: '#065F46', label: 'Баталгаажсан' },
-  cancelled: { bg: '#FEE2E2', text: '#991B1B', label: 'Цуцалсан' },
-  completed: { bg: '#DBEAFE', text: '#1E40AF', label: 'Дууссан' },
-};
-
-function StatusBadge({ status }) {
-  const c = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
-  return (
-    <View style={[styles.badge, { backgroundColor: c.bg }]}>
-      <Text style={[styles.badgeText, { color: c.text }]}>{c.label}</Text>
-    </View>
-  );
-}
 
 export default function ProfileScreen() {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-
-  const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [cancelling, setCancelling] = useState(null);
-
-  const loadBookings = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data } = await apiClient.get('/api/bookings/my');
-      setBookings(Array.isArray(data) ? data : []);
-    } catch {
-      setBookings([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadBookings();
-  }, [loadBookings]);
-
-  const handleCancel = async (id) => {
-    setCancelling(id);
-    try {
-      await apiClient.patch(`/api/bookings/${id}/cancel`);
-      setBookings((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, status: 'cancelled' } : b)),
-      );
-    } catch {
-      // silent
-    } finally {
-      setCancelling(null);
-    }
-  };
 
   return (
     <SafeAreaView edges={['top']} style={styles.root}>
@@ -97,7 +30,6 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        {/* Profile card */}
         <View style={styles.profileCard}>
           <View style={styles.avatarCircle}>
             <Ionicons name="person" size={36} color={colors.white} />
@@ -111,45 +43,18 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Bookings section */}
-        <Text style={styles.sectionTitle}>Миний захиалгууд</Text>
-
-        {loading ? (
-          <ActivityIndicator color={colors.primary} style={styles.loader} />
-        ) : bookings.length === 0 ? (
-          <Text style={styles.emptyText}>Захиалга байхгүй байна</Text>
-        ) : (
-          bookings.map((booking) => (
-            <View key={booking.id} style={styles.bookingCard}>
-              <View style={styles.bookingHeader}>
-                <Text style={styles.bookingSalon}>{booking.salon_name}</Text>
-                <StatusBadge status={booking.status} />
+        <View style={styles.menuSection}>
+          {MENU_ITEMS.map((item) => (
+            <Pressable key={item.label} style={styles.menuRow}>
+              <View style={styles.menuIconWrap}>
+                <Ionicons name={item.icon} size={20} color={colors.primary} />
               </View>
-              <Text style={styles.bookingMeta}>
-                {formatDate(booking.booking_date)} · {formatTime(booking.booking_time)}
-              </Text>
-              {booking.stylist_name ? (
-                <Text style={styles.bookingMeta}>{booking.stylist_name}</Text>
-              ) : null}
-              {booking.service_name ? (
-                <Text style={styles.bookingMeta}>{booking.service_name}</Text>
-              ) : null}
-              {booking.status === 'pending' ? (
-                <Pressable
-                  style={styles.cancelBtn}
-                  onPress={() => handleCancel(booking.id)}
-                  disabled={cancelling === booking.id}
-                >
-                  <Text style={styles.cancelText}>
-                    {cancelling === booking.id ? 'Цуцалж байна...' : 'Цуцлах'}
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-          ))
-        )}
+              <Text style={styles.menuLabel}>{item.label}</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+          ))}
+        </View>
 
-        {/* Logout */}
         <View style={styles.logoutSection}>
           <Button title="Гарах" variant="outline" onPress={logout} />
         </View>
@@ -197,63 +102,34 @@ const styles = StyleSheet.create({
     ...typography.body,
     marginTop: 2,
   },
-  sectionTitle: {
-    ...typography.h3,
-    marginBottom: spacing.md,
-  },
-  loader: {
-    marginTop: spacing.xl,
-  },
-  emptyText: {
-    ...typography.body,
-    marginBottom: spacing.xl,
-    textAlign: 'center',
-  },
-  bookingCard: {
+  menuSection: {
     backgroundColor: colors.card,
-    borderRadius: 14,
-    marginBottom: spacing.md,
-    padding: spacing.lg,
+    borderRadius: 16,
+    marginBottom: spacing.xl,
+    overflow: 'hidden',
   },
-  bookingHeader: {
+  menuRow: {
     alignItems: 'center',
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
-  bookingSalon: {
-    ...typography.bodyBold,
+  menuIconWrap: {
+    alignItems: 'center',
+    backgroundColor: colors.primaryLight,
+    borderRadius: 10,
+    height: 38,
+    justifyContent: 'center',
+    marginRight: spacing.md,
+    width: 38,
+  },
+  menuLabel: {
+    ...typography.body,
     flex: 1,
-    marginRight: spacing.sm,
-  },
-  badge: {
-    borderRadius: 8,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  bookingMeta: {
-    ...typography.caption,
-    marginTop: 3,
-  },
-  cancelBtn: {
-    alignSelf: 'flex-start',
-    borderColor: colors.error,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  cancelText: {
-    color: colors.error,
-    fontSize: 13,
-    fontWeight: '600',
   },
   logoutSection: {
-    marginTop: spacing.xl,
+    marginTop: spacing.sm,
   },
 });

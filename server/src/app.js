@@ -9,6 +9,7 @@ const salonRoutes = require('./routes/salons');
 const stylistRoutes = require('./routes/stylists');
 const bookingRoutes = require('./routes/bookings');
 const paymentRoutes = require('./routes/payments');
+const favoriteRoutes = require('./routes/favorites');
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use('/api/salons', salonRoutes);
 app.use('/api/stylists', stylistRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/favorites', favoriteRoutes);
 
 const PORT = process.env.PORT || 3000;
 

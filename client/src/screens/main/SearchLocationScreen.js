@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Header } from '../../components';
+import useAppStore from '../../store/appStore';
 import { colors, spacing, typography } from '../../theme';
 
 const INITIAL_RECENT = [
@@ -21,12 +22,16 @@ const INITIAL_RECENT = [
 
 export default function SearchLocationScreen() {
   const navigation = useNavigation();
+  const setCity = useAppStore((state) => state.setCity);
   const [query, setQuery] = useState('');
   const [recent, setRecent] = useState(INITIAL_RECENT);
 
   const removeRecent = (id) => setRecent((prev) => prev.filter((item) => item.id !== id));
 
-  const handleSelect = () => navigation.goBack();
+  const handleSelect = (item) => {
+    setCity(item.city);
+    navigation.goBack();
+  };
 
   const filtered = query.trim()
     ? recent.filter((item) =>
@@ -69,7 +74,7 @@ export default function SearchLocationScreen() {
               <Pressable
                 key={item.id}
                 style={styles.locationRow}
-                onPress={handleSelect}
+                onPress={() => handleSelect(item)}
               >
                 <Ionicons
                   name="location-outline"

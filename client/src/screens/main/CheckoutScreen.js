@@ -152,7 +152,7 @@ export default function CheckoutScreen() {
       return;
     }
 
-    if (!selectedStylist?.id) {
+    if (!selectedStylist) {
       setError("Стилист сонгоогүй байна");
       return;
     }
@@ -211,7 +211,6 @@ export default function CheckoutScreen() {
                 <Text style={styles.salonName} numberOfLines={1}>
                   {selectedSalon?.name || "—"}
                 </Text>
-                <Text style={styles.salonDistance}>1000 km</Text>
               </View>
               <View style={styles.salonAddressRow}>
                 <Ionicons
@@ -334,9 +333,6 @@ const styles = StyleSheet.create({
     ...typography.h3,
     flex: 1,
     marginRight: spacing.sm,
-  },
-  salonDistance: {
-    ...typography.caption,
   },
   salonAddressRow: {
     alignItems: "flex-start",

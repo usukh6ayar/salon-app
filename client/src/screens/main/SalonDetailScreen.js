@@ -95,6 +95,7 @@ export default function SalonDetailScreen() {
   const [activeTab, setActiveTab] = useState('haircut');
   const [selectedServices, setSelectedServices] = useState([]);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
 
   const servicesByCategory = useMemo(
     () => groupServicesByCategory(services),
@@ -121,13 +122,15 @@ export default function SalonDetailScreen() {
       setLoading(true);
       setError('');
       try {
-        const [salonRes, servicesRes] = await Promise.all([
+        const [salonRes, servicesRes, favRes] = await Promise.all([
           apiClient.get(`/api/salons/${salonId}`),
           apiClient.get(`/api/salons/${salonId}/services`),
+          apiClient.get(`/api/favorites/${salonId}`).catch(() => ({ data: { isFavorite: false } })),
         ]);
         setSalonData(salonRes.data);
         const list = Array.isArray(servicesRes.data) ? servicesRes.data : [];
         setServices(list);
+        setIsFavorite(favRes.data?.isFavorite ?? false);
 
         const grouped = groupServicesByCategory(list);
         const firstTab = CATEGORY_TABS.find((tab) => (grouped[tab.id] ?? []).length > 0);
@@ -183,7 +186,23 @@ export default function SalonDetailScreen() {
         </Pressable>
         <Pressable
           style={styles.navBtn}
-          onPress={() => setIsFavorite((v) => !v)}
+          onPress={async () => {
+            if (favoriteLoading || !salon?.id) return;
+            setFavoriteLoading(true);
+            const next = !isFavorite;
+            setIsFavorite(next);
+            try {
+              if (next) {
+                await apiClient.post(`/api/favorites/${salon.id}`);
+              } else {
+                await apiClient.delete(`/api/favorites/${salon.id}`);
+              }
+            } catch {
+              setIsFavorite(!next);
+            } finally {
+              setFavoriteLoading(false);
+            }
+          }}
           hitSlop={8}
         >
           <Ionicons

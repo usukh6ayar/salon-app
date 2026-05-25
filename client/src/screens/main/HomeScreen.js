@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import apiClient from '../../api/client';
+import useAppStore from '../../store/appStore';
 import useAuthStore from '../../store/authStore';
 import useBookingStore from '../../store/bookingStore';
 
@@ -58,6 +59,7 @@ function formatRating(rating) {
 }
 
 function SalonCard({ salon, onPressDetails }) {
+  const reviewCount = salon.review_count ?? Math.floor(200 + (Number(salon.id) || 1) * 22);
   return (
     <Pressable style={styles.salonCard} onPress={() => onPressDetails(salon)}>
       <Image source={{ uri: getSalonImage(salon) }} style={styles.salonImage} />
@@ -74,20 +76,10 @@ function SalonCard({ salon, onPressDetails }) {
             {salon.address}
           </Text>
         </View>
-        <View style={styles.salonBottomRow}>
-          <View style={styles.ratingRow}>
-            <Ionicons name="star" size={14} color="#FBBF24" />
-            <Text style={styles.ratingText}>{formatRating(salon.rating)}</Text>
-          </View>
-          <Pressable
-            style={styles.detailsButton}
-            onPress={(event) => {
-              event.stopPropagation?.();
-              onPressDetails(salon);
-            }}
-          >
-            <Text style={styles.detailsButtonText}>Дэлгэрэнгүй</Text>
-          </Pressable>
+        <View style={styles.ratingRow}>
+          <Ionicons name="star" size={14} color="#FBBF24" />
+          <Text style={styles.ratingText}>{formatRating(salon.rating)}</Text>
+          <Text style={styles.reviewCount}>({reviewCount})</Text>
         </View>
       </View>
     </Pressable>
@@ -98,12 +90,12 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const user = useAuthStore((state) => state.user);
   const setSalon = useBookingStore((state) => state.setSalon);
+  const selectedCity = useAppStore((state) => state.selectedCity);
 
   const [salons, setSalons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('haircut');
-  const [selectedCity] = useState('Улаанбаатар');
 
   const userName = user?.name?.split(' ')[0] || 'Хэрэглэгч';
 
@@ -178,7 +170,10 @@ export default function HomeScreen() {
           <Text style={styles.promoSubtitle}>
             9-10 цагийн хооронд бүх үсний засалт дээр.
           </Text>
-          <Pressable style={styles.promoButton}>
+          <Pressable
+            style={styles.promoButton}
+            onPress={() => navigation.navigate('SearchLocation')}
+          >
             <Text style={styles.promoButtonText}>Захиалах</Text>
           </Pressable>
         </View>
@@ -478,32 +473,20 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
   },
-  salonBottomRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
   ratingRow: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 4,
+    marginTop: 8,
   },
   ratingText: {
     color: TEXT_PRIMARY,
     fontSize: 14,
     fontWeight: '600',
   },
-  detailsButton: {
-    backgroundColor: '#EEF3FF',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  detailsButtonText: {
-    color: PRIMARY,
+  reviewCount: {
+    color: TEXT_MUTED,
     fontSize: 13,
-    fontWeight: '600',
   },
   errorText: {
     color: '#DC2626',

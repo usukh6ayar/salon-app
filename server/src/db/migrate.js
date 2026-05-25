@@ -69,6 +69,13 @@ const migrations = [
     exp_month INT,
     exp_year INT
   )`,
+  `CREATE TABLE IF NOT EXISTS favorites (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id),
+    salon_id INT REFERENCES salons(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(user_id, salon_id)
+  )`,
 ];
 
 async function migrate() {
